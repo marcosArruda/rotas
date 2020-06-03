@@ -22,13 +22,12 @@ func main() {
 		panic(err)
 	}
 	parseInput(f)
-	g.AllRoutes(g.Nodes[0].Name, g.Nodes[2].Name)
+	g.AllRoutes("GRU", "ORL", map[string]bool{}, []string{})
 }
 
 func parseInput(file *os.File) {
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
-	//neighbors := make(map[string][]neighbor)
 	for scanner.Scan() {
 		line := scanner.Text()
 		res := strings.Split(line, ",")
