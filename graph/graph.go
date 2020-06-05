@@ -18,6 +18,11 @@ type Neighbor struct {
 	Cost money.USD
 }
 
+type Route struct {
+	PathList *[]string
+	Cost     money.USD
+}
+
 // AirportsGraph the Airports Graph
 type AirportsGraph struct {
 	Nodes  []*Node
@@ -30,6 +35,9 @@ type AirportsGraph struct {
 type BestRouteError struct {
 	Text string
 }
+
+//RoutesTable is table of all routes
+var RoutesTable map[string]*[]*Route
 
 func (e BestRouteError) Error() string {
 	return e.Text
@@ -83,24 +91,35 @@ func (g *AirportsGraph) AddEdge(n1 *Node, n2 *Node, cost float64) {
 // AllRoutes find all routes to destination
 func (g *AirportsGraph) AllRoutes(from string, to string, alreadySeen map[string]bool, localPathList []string) {
 	alreadySeen[from] = true
-	if from == to {
+
+	if from == to { //found a route
 		sx := ""
 		localPathList = removeDup(localPathList)
 		lastStop := ""
 		var finalPrice money.USD = money.ToUSD(0)
+		pathList := make([]string, 0)
 		for _, x := range localPathList {
 			if lastStop == "" {
 				sx += x
+				pathList = append(pathList, x)
 			} else {
 				sx += " -" + g.Prices[lastStop+x].String() + "-> " + x
+				pathList = append(pathList, x)
 				finalPrice = finalPrice.Sum(g.Prices[lastStop+x])
 			}
 			lastStop = x + "-"
 		}
+		route := Route{
+			PathList: &pathList,
+			Cost:     finalPrice,
+		}
+		// TODO: pegar este slice abaixo e adicionar e ordenar...
+		RoutesTable[pathList[0]+"-"+pathList[len(pathList)-1]]
 		fmt.Println(sx + " = " + finalPrice.String())
 		alreadySeen[from] = false
 		return
 	}
+
 	localPathList = append(localPathList, from)
 	adjs := g.edges[from]
 	for j := 0; j < len(adjs); j++ {
