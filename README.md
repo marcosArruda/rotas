@@ -1,66 +1,90 @@
 # Rota de Viagem #
 
-Um turista deseja viajar pelo mundo pagando o menor preço possível independentemente do número de conexões necessárias.
-Vamos construir um programa que facilite ao nosso turista, escolher a melhor rota para sua viagem.
+O Desafio proposto é o clássico problema do viajante pobre que tem todo o tempo do mundo :). Basicamente ele precisa escolher a rota mais barata para chegar ao seu destino sem se preocupar com a quantidade de conexões.
 
-Para isso precisamos inserir as rotas através de um arquivo de entrada.
+## Problemas da especificação ##
 
-## Input Example ##
-```csv
-GRU,BRC,10
-BRC,SCL,5
-GRU,CDG,75
-GRU,SCL,20
-GRU,ORL,56
-ORL,CDG,5
-SCL,ORL,20
-```
+A especificação possui alguns problemas que encontrei durante a leitura inicial do desafio. O primeiro deles é o próprio exemplo dado como explicação. Nele, o viajante pretende ir de **GRU** até **CDG** porém o exemplo informa a alternativa incorreta como a resposta correta. O outro problema consiste que o Nó CDG é erradamente escrito no exemplo da interface shell. Nela, ecreve-se **CGD** ao invés de **CDG**(Charles de Gaulle) representando o famoso aeroporto na França, batizado em virtude do antigo Presidente francês de mesmo nome.
 
-## Explicando ##
-Caso desejemos viajar de **GRU** para **CDG** existem as seguintes rotas:
+Em um caso real, a primeira coisa que eu faria antes de começar a escrever qualquer código seria questionar essas inconsistências com a pessoa que escreveu a especificação. Esses erros podem ser tanto propositáis com uma intenção oculta de negócio, ou apenas um erro humano. Nos dois casos, é necessária a correção pois, sendo especificação, ela DEVE ESPECIFICAR e não ocultar a regra de negócio.
 
-1. GRU - BRC - SCL - ORL - CDG ao custo de **$40**
-2. GRU - ORL - CGD ao custo de **$64**
-3. GRU - CDG ao custo de **$75**
-4. GRU - SCL - ORL - CDG ao custo de **$48**
-5. GRU - BRC - CDG ao custo de **$45**
+A terceira falta encontrada foi na ausência da informação do sentido das rotas inputadas. Por exemplo, **GRU -> BRC = $10** significa que **BRC -> GRU = $10**?. Uma vez que não foi explicitado esse caso (numa situação real, também teria o meu questionamento), considero no arquivo compilado que f(GRU -> BRC) = f(BRC -> GRU), ou seja, o custo de **origem -> destino** é igual ao custo de **destino -> origem**.
 
-O melhor preço é da rota **4** logo, o output da consulta deve ser **CDG - SCL - ORL - CDG**.
-
-### Execução do programa ###
-A inicializacao do teste se dará por linha de comando onde o primeiro argumento é o arquivo com a lista de rotas inicial.
+## Como executar ##
+1. Faça o download do binário relativo ao seu sistema operacional (compilei para **Linux**, **Windows** e **MacOS**)
+2. Inicie o sistema executando:
 
 ```shell
-$ mysolution input-routes.csv
+$ ./rotas input-routes.csv
 ```
 
-Duas interfaces de consulta devem ser implementadas:
-- Interface de console deverá receber um input com a rota no formato "DE-PARA" e imprimir a melhor rota e seu respectivo valor.
-  Exemplo:
-  ```shell
-  please enter the route: GRU-CGD
-  best route: GRU - BRC - SCL - ORL - CDG > $40
-  please enter the route: BRC-CDG
-  best route: BRC - ORL > $30
-  ```
+3. O sistema irá ler o arquivo csv de input e logo em seguida perguntar-a por uma **origem-destino** a ser calculada.
 
-- Interface Rest
-    A interface Rest deverá suportar:
-    - Registro de novas rotas. Essas novas rotas devem ser persistidas no arquivo csv utilizado como input(input-routes.csv),
-    - Consulta de melhor rota entre dois pontos.
+```shell
+please enter the route: XXX-XXX
+```
+4. Depois de inserir a **origem-destino**, o sistema irá informar a rota mais barata encontrada.
 
-Também será necessária a implementação de 2 endpoints Rest, um para registro de rotas e outro para consula de melhor rota.
+```shell
+best route: XXX - XXX - XXX - XXX - XXX > $XX
+please enter the route: ZZZ-ZZZ
+best route: ZZZ - ZZZ > $ZZ
+```
 
-## Recomendações ##
-Para uma melhor fluides da nossa conversa, atente-se aos seguintes pontos:
+## Estrutura dos arquivos/pacotes ##
+Implementei a solução usando **Golang**, porém poderia ter utilizado **Java**, **Kotlin**, **Scala**, **Groovy** e **Python** que são outras linguágens que tenho proeficiência avançada. Na estrutura **Golang** temos:
+* Pacotes (que também foram encapsulados como módulos do Golang 1.14, portanto Módulos e Pacotes são as mesmas coisas nessa minha implementação)
+  * **graph**: Contem todo o algoritmo de parse e calculo e pesquisa das rotas, bem como a implementação manual de o algoritmo base da estrutura de arestas de um Gráfo. Eu sei que existem milhares de bibliotecas de gráfo por aí. Preferi implementar a minha na mão pelo desafio proposto.
+  * **money**: Contem a estrutural de dados e algoritmos usados para o cálculo financeiro dos custos de cada uma das rotas.
+  * **rest**: Algoritmos e estrutura relativas à interface rest utilizada.
+* Third Party Libs:
+  * **github.com/gorilla/mux**: Lib um pouco mais performática para a interface rest http (única lib de terceiros utilizada).
+* Arquivos:
+  * **\*.go**: são os arquivos fonte do Golang.
+  * **\*_test.go**: Arquivo de testes unitários de cada pacote.
+  * **go.mod & go.sum**: Arquivos da estrutura de módulos do Golang.
+  * **main.go**: Arquivo principal de inicialização do sistema.
+  * **graph/graph.go**: Módulo da implementação de Gráfos. Contém todo o algorítmo utilizado nas buscas e estrutura de dados.
+  * **money/money.go**: Módulo de Money.
+  * **rest/rest.go**: Módulo da Interface Rest implementada.
 
-* Envie apenas o código fonte,
-* Estruture sua aplicação seguindo as boas práticas de desenvolvimento,
-* Evite o uso de frameworks ou bibliotecas externas à linguagem. Utilize apenas o que for necessário para a exposição do serviço,
-* Implemente testes unitários seguindo as boas praticas de mercado,
-* Documentação
-  Em um arquivo Texto ou Markdown descreva:
-  * Como executar a aplicação,
-  * Estrutura dos arquivos/pacotes,
-  * Explique as decisões de design adotadas para a solução,
-  * Descreva sua APÌ Rest de forma simplificada.
+## Decisões de Design ##
+* Utilização de Multithread para controlar a interface shell e a interface rest Http separadamente. Basicamente Cada chamada Rest resulta em uma nova thread no servidor Http, mas o servidor Http por sua vez é iniciado em outra thread separada da thread de leitura e calculo dos algoritmos. Isso resulta em um sistema mais performático.
+* Encapsulamento e Modularização da implementação de Grafos dentro do pacote/módulo **graph**, de maneira que fica bastante semples utilizar os mesmos algoritmos em outro sistema futuro, seguindo as melhores práticas do desenvolvimento Golang.
+* A funcionalidade de IO no arquivo de input em disco(CSV) foi colocada também dentro do módulo **graph** uma vez que é apenas o grafo que realiza este IO.
+* Utilizei uma lib open-source para o roteamento das requisições Http. Esta lib é mais performática do que a lib default do Golang.
+
+## A API Rest ##
+A API Rest desenvolvida possui basicamente dois(s) endpoints. São eles:
+* POST,PUT "/route" - Recebe no body um json no seguinte formato:
+```
+input:
+  {
+    "from": "XXX",
+    "to": "XXX",
+    "cost": 12.25
+  }
+output
+{
+  "from": "XXX",
+  "to": "XXX",
+  "cost": 12.25
+}
+```
+
+* GET "/route/{from}/{to}" - Retorna a rota mais baráda encontrada no seguinte formato:
+```
+output:
+{
+  "best": "XXX - XXX - XXX",
+  "cost": 12.25
+}
+```
+
+ps.: Nenhuma rota exige autenticação;  
+ps2.: Existe um script shell chamado **add-route.sh** que faz a chamada via curl para facilitar :).
+
+## Pré-requisitos para Compilar ##
+* Golang 1.14+
+
+Para compilar, utilize o shell chamado **build.sh** que adicionei :)
