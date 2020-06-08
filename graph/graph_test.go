@@ -1,10 +1,13 @@
 package graph
 
 import (
+	"fmt"
 	"testing"
 )
 
-var g AirportsGraph
+var g = AirportsGraph{
+	RoutesTable: map[string]*[]*Route{},
+}
 
 func TestAddOK(t *testing.T) {
 	fillGraph()
@@ -22,7 +25,9 @@ func TestAddDuplicate(t *testing.T) {
 
 func TestAllRoutesList(t *testing.T) {
 	fillGraph()
-	g.AllRoutes("GRU", "ORL", map[string]bool{}, []string{})
+	g.allRoutes("GRU", "ORL", map[string]bool{}, []string{})
+	allRoutes := *g.RoutesTable["GRU-ORL"]
+	fmt.Println(allRoutes[0].String(false))
 }
 
 func fillGraph() {

@@ -1,7 +1,11 @@
 package graph
 
 import (
-	"fmt"
+	"bufio"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 
 	"bexs.marcosarruda.info/rotas/money"
@@ -18,17 +22,36 @@ type Neighbor struct {
 	Cost money.USD
 }
 
+//Route is a final Route found on the algoritm
 type Route struct {
 	PathList *[]string
 	Cost     money.USD
 }
 
+func (r *Route) String(isWeb bool) string {
+	s := ""
+	for _, x := range *r.PathList {
+		if s == "" {
+			s += x
+		} else {
+			s += " - " + x
+		}
+	}
+	if isWeb {
+		return s + "|" + r.Cost.String()
+	} else {
+		return s + " > " + r.Cost.String()
+	}
+
+}
+
 // AirportsGraph the Airports Graph
 type AirportsGraph struct {
-	Nodes  []*Node
-	edges  map[string][]*Neighbor
-	Prices map[string]money.USD
-	lock   sync.RWMutex
+	Nodes       []*Node
+	edges       map[string][]*Neighbor
+	Prices      map[string]money.USD
+	lock        sync.RWMutex
+	RoutesTable map[string]*[]*Route
 }
 
 //BestRouteError error calcaulating best route
@@ -37,7 +60,7 @@ type BestRouteError struct {
 }
 
 //RoutesTable is table of all routes
-var RoutesTable map[string]*[]*Route
+//var RoutesTable = map[string]*[]*Route{}
 
 func (e BestRouteError) Error() string {
 	return e.Text
@@ -50,6 +73,36 @@ func (g *AirportsGraph) AddNode(n *Node) {
 		g.Nodes = append(g.Nodes, n)
 	}
 	g.lock.Unlock()
+}
+
+//ResetGraph remove all data to prepare for a new load from disk
+func (g *AirportsGraph) ResetGraph() {
+	g.lock.Lock()
+	g.RoutesTable = map[string]*[]*Route{}
+	g.Prices = map[string]money.USD{}
+	g.edges = map[string][]*Neighbor{}
+	g.Nodes = nil
+	g.lock.Unlock()
+}
+
+//LoadFromDisk Load data from predefined file
+func (g *AirportsGraph) LoadFromDisk(filePath string) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		res := strings.Split(line, ",")
+		origin := Node{Name: res[0]}
+		g.AddNode(&origin)
+		destination := Node{Name: res[1]}
+		g.AddNode(&destination)
+		cost, _ := strconv.ParseFloat(res[2], 64)
+		g.AddEdge(&origin, &destination, cost)
+	}
 }
 
 //Contains verify if the Graph table contains a Node
@@ -88,13 +141,22 @@ func (g *AirportsGraph) AddEdge(n1 *Node, n2 *Node, cost float64) {
 	g.lock.Unlock()
 }
 
-// AllRoutes find all routes to destination
-func (g *AirportsGraph) AllRoutes(from string, to string, alreadySeen map[string]bool, localPathList []string) {
-	alreadySeen[from] = true
+func (g *AirportsGraph) CalcBestRoute(origin string, destination string, isWeb bool) (string, error) {
+	contains := g.Contains(&Node{Name: origin}) && g.Contains(&Node{Name: destination})
+	if !contains {
+		return "", BestRouteError{Text: "Origin(" + origin + ") or Destination(" + destination + ") missing!"}
+	}
+	g.allRoutes(origin, destination, map[string]bool{}, []string{})
+	allRoutes := *g.RoutesTable[origin+"-"+destination]
+	return allRoutes[0].String(isWeb), nil
+}
 
+// AllRoutes find all routes to destination
+func (g *AirportsGraph) allRoutes(from string, to string, alreadySeen map[string]bool, localPathList []string) {
+	alreadySeen[from] = true
 	if from == to { //found a route
 		sx := ""
-		localPathList = removeDup(localPathList)
+		localPathList = RemoveDup(localPathList)
 		lastStop := ""
 		var finalPrice money.USD = money.ToUSD(0)
 		pathList := make([]string, 0)
@@ -109,13 +171,23 @@ func (g *AirportsGraph) AllRoutes(from string, to string, alreadySeen map[string
 			}
 			lastStop = x + "-"
 		}
-		route := Route{
+		route := &Route{
 			PathList: &pathList,
 			Cost:     finalPrice,
 		}
+		routeTableName := pathList[0] + "-" + pathList[len(pathList)-1]
 		// TODO: pegar este slice abaixo e adicionar e ordenar...
-		RoutesTable[pathList[0]+"-"+pathList[len(pathList)-1]]
-		fmt.Println(sx + " = " + finalPrice.String())
+		if g.RoutesTable[routeTableName] == nil {
+			newRouteSlc := &[]*Route{}
+			g.RoutesTable[routeTableName] = newRouteSlc
+		}
+		routeList := g.RoutesTable[routeTableName]
+		appendedSlice := append(*routeList, route)
+		sort.Slice(appendedSlice, func(i, j int) bool {
+			return appendedSlice[i].Cost < appendedSlice[j].Cost
+		})
+		*g.RoutesTable[routeTableName] = appendedSlice
+		//fmt.Println(sx + " = " + finalPrice.String())
 		alreadySeen[from] = false
 		return
 	}
@@ -126,47 +198,15 @@ func (g *AirportsGraph) AllRoutes(from string, to string, alreadySeen map[string
 		curr := adjs[j].Node.Name
 		if alreadySeen[curr] == false {
 			localPathList = append(localPathList, curr)
-			g.AllRoutes(curr, to, alreadySeen, localPathList)
+			g.allRoutes(curr, to, alreadySeen, localPathList)
 			localPathList = RemoveStr(localPathList, curr)
 		}
 	}
 	alreadySeen[from] = false
 }
 
-func (g *AirportsGraph) BestCostEffectiveRoute(from string, to string, alreadySeen map[string]bool, localPathList []string) {
-	alreadySeen[from] = true
-	if from == to {
-		sx := ""
-		localPathList = removeDup(localPathList)
-		lastStop := ""
-		var finalPrice money.USD = money.ToUSD(0)
-		for _, x := range localPathList {
-			if lastStop == "" {
-				sx += x
-			} else {
-				sx += " -" + g.Prices[lastStop+x].String() + "-> " + x
-				finalPrice = finalPrice.Sum(g.Prices[lastStop+x])
-			}
-			lastStop = x + "-"
-		}
-		fmt.Println(sx + " = " + finalPrice.String())
-		alreadySeen[from] = false
-		return
-	}
-	localPathList = append(localPathList, from)
-	adjs := g.edges[from]
-	for j := 0; j < len(adjs); j++ {
-		curr := adjs[j].Node.Name
-		if alreadySeen[curr] == false {
-			localPathList = append(localPathList, curr)
-			g.AllRoutes(curr, to, alreadySeen, localPathList)
-			localPathList = RemoveStr(localPathList, curr)
-		}
-	}
-	alreadySeen[from] = false
-}
-
-func removeDup(elements []string) []string {
+//removeDup remove duplications from slice
+func RemoveDup(elements []string) []string {
 	// Use map to record duplicates as we find them.
 	encountered := map[string]bool{}
 	result := []string{}

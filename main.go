@@ -7,25 +7,25 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"bexs.marcosarruda.info/rotas/graph"
+	"bexs.marcosarruda.info/rotas/rest"
 )
 
-var g graph.AirportsGraph
-
-func main() {
-	allArgs := os.Args[1:]
-	//f, err := os.Open("input-file.txt")
-	f, err := os.Open(allArgs[0])
-
-	if err != nil {
-		panic(err)
-	}
-	parseInput(f)
-	g.AllRoutes("GRU", "ORL", map[string]bool{}, []string{})
+var g *graph.AirportsGraph = &graph.AirportsGraph{
+	RoutesTable: map[string]*[]*graph.Route{},
 }
 
-func parseInput(file *os.File) {
+func main() {
+	filePath := os.Args[1:][0]
+	g.LoadFromDisk(filePath)
+	go rest.API(filePath, g)
+	time.Sleep(time.Second)
+	parseOtherInputs()
+}
+
+func parseFirstInput(file *os.File) {
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -40,49 +40,30 @@ func parseInput(file *os.File) {
 	}
 }
 
-func calcBestRoute(origin string, destination string) (string, error) {
-	return "", graph.BestRouteError{Text: "Shit"}
-}
-
-func finalImpl() {
-
+func parseOtherInputs() {
 	r := bufio.NewScanner(os.Stdin)
-	fmt.Print("please enter the route: ")
-	r.Scan()
-	inputSlice := strings.Split(r.Text(), "-")
-	if len(inputSlice) < 2 {
-		log.Fatal("Put an input in the format XXX-XXX\n")
+	for {
+		fmt.Print("please enter the route: ")
+		r.Scan()
+		inputSlice := strings.Split(r.Text(), "-")
+		if len(inputSlice) < 2 {
+			log.Fatal("Put an input in the format XXX-XXX\n")
+		}
+		originStr := inputSlice[0]
+		destStr := inputSlice[1]
+		contains := g.Contains(&graph.Node{Name: originStr}) && g.Contains(&graph.Node{Name: destStr})
+
+		//best route: GRU - BRC - SCL - ORL - CDG > $40
+		if !contains {
+			log.Fatalf("Origin or Destination missing! %v", r.Text())
+		}
+
+		//calculate route;
+		bestRoute, err := g.CalcBestRoute(originStr, destStr, false)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println("best route:", bestRoute)
+		//fmt.Println("best route: XXX - XXX - XXX - XXX > $40")
 	}
-	originStr := inputSlice[0]
-	destStr := inputSlice[1]
-	contains := g.Contains(&graph.Node{Name: originStr}) && g.Contains(&graph.Node{Name: destStr})
-
-	//best route: GRU - BRC - SCL - ORL - CDG > $40
-	if !contains {
-		log.Fatalf("Origin or Destination missing! %v", r.Text())
-	}
-
-	//calculate route;
-	a, err := calcBestRoute(originStr, destStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(a)
-	fmt.Println("best route: XXX - XXX - XXX - XXX > $40")
-	//fmt.Println("OI!", inputSlice[0], " contains:", contains)
-
-	//g.String()
-
-	//r := bufio.NewScanner(os.Stdin)
-	//fmt.Print("Which table would you like to watch update?: ")
-	//r.Scan()
-	//watchTable := r.Text()
-
-	//Node{Name: "GRU"}
-	//g.AddNode(&nGRU)
-	//g.AddEdge(&nGRU, &nBRC, 10)
-
-	//fmt.Println("oi")
-	//node := graph.Node{Name: "brasil"}
-	//fmt.Println(node.Name)
 }
