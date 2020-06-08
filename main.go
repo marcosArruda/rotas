@@ -31,9 +31,9 @@ func parseFirstInput(file *os.File) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		res := strings.Split(line, ",")
-		origin := graph.Node{Name: res[0]}
+		origin := graph.Node{Name: strings.ToUpper(res[0])}
 		g.AddNode(&origin)
-		destination := graph.Node{Name: res[1]}
+		destination := graph.Node{Name: strings.ToUpper(res[1])}
 		g.AddNode(&destination)
 		cost, _ := strconv.ParseFloat(res[2], 64)
 		g.AddEdge(&origin, &destination, cost)
@@ -49,8 +49,8 @@ func parseOtherInputs() {
 		if len(inputSlice) < 2 {
 			log.Fatal("Put an input in the format XXX-XXX\n")
 		}
-		originStr := inputSlice[0]
-		destStr := inputSlice[1]
+		originStr := strings.ToUpper(inputSlice[0])
+		destStr := strings.ToUpper(inputSlice[1])
 		contains := g.Contains(&graph.Node{Name: originStr}) && g.Contains(&graph.Node{Name: destStr})
 
 		//best route: GRU - BRC - SCL - ORL - CDG > $40
